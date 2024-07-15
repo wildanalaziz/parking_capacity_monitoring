@@ -39,7 +39,7 @@ def run(
         classes=None,
         line_thickness=2,
         region_thickness=2,
-        max_parking_cap=10
+        parking_capacity=10
 ):
     """
     Run Region counting on a video using YOLOv10 and ByteTrack.
@@ -87,8 +87,6 @@ def run(
     
 
     # Iterate and analyze over video frames
-    track_history = defaultdict(list)
-    count_ids = []
     prev_time = 0
     
     while VideoCapture.isOpened():
@@ -113,15 +111,9 @@ def run(
             for box, track_id, cls in zip(boxes, track_ids, clss):
                 bbox_center = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
 
-                track = track_history[track_id] # Tracking lines plot
-                track.append((float(bbox_center[0]), float(bbox_center[1])))
-                if len(track) > 30:
-                    track.pop(0)
-                
                 # Check if detection inside region
                 for region in counting_region:
                     is_inside_region = region["polygon"].contains(Point((bbox_center[0], bbox_center[1])))
-                    # print(counter_accumulated)
                     if is_inside_region:
                         annotator.box_label(box, color=colors(cls,True)) # kotak deteksi yg didalam region
                         region["counts"] += 1
@@ -153,19 +145,23 @@ def run(
             )
             cv2.polylines(frame, [polygon_coords], isClosed=True, color=region_color, thickness=region_thickness)
         
-        max_parking_cap = max_parking_cap - 
-        cv2.putText(frame, max_parking_cap, (7, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 255, 0), 1, cv2.LINE_AA)
+        # Parking left
+        # x, y = region["polygon"].exterior.coords.xy
+        parking_left = parking_capacity - region["counts"]
+        cv2.putText(frame, f"Parking available : {parking_left}", (int(frame_w/2), 20), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 255, 0), 1, cv2.LINE_AA)
         
+        # parking_left = parking_capacity
+
         if view_img:
             cv2.imshow("Crowd Counter POC", frame)
         
         if save_img:
             video_writer.write(frame)
         
-        if not counter_accumulated:
-            for region in counting_region: # Reinitialize counter 
-                region["counts"] = 0
-            
+        for region in counting_region: # Reinitialize counter 
+            region["counts"] = 0
+
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
         
